@@ -1,0 +1,41 @@
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+logs/
+*.tmp
+
+# Compiled source #
+###################
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# Build directories
+/dist/
+/build/
+
+# Dependency directories (Node.js, etc.)
+node_modules/
+bower_components/
+
+# Python specific
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables and virtual environments
+.env
+.env.*
+.venv/
+venv/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace 
