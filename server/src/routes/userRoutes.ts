@@ -9,7 +9,6 @@ router.post('/', createUserAgent);
 // Endpoint to get the status of a user agent by ID
 router.get('/:id', getUserAgentStatus);
 
-// Endpoint to update the risk profile for a user agent
 router.put('/:id/risk', updateRiskProfile);
 
 export default router;
