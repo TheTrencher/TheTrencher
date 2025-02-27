@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getUserAgentsStore } from './userController';
+import { User } from '../models/User';
 
 interface Trade {
   tradeId: string;
@@ -50,40 +51,50 @@ const simulateTradeExecution = (agent: any, price: number): Trade => {
   return trade;
 };
 
-// Controller function to trigger the trade simulation
-export const triggerTradeSimulation = (req: Request, res: Response): void => {
-  const userAgents = getUserAgentsStore();
-  const price = simulatePriceData();
-  const tradeResults: TradeResult[] = [];
+// Update the controller function to be async
+export const triggerTradeSimulation = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userAgents = await getUserAgentsStore();
+    const price = simulatePriceData();
+    const tradeResults = [];
 
-  // Log the price update event
-  eventLogs.push({
-    eventId: Date.now().toString(),
-    source: 'Simulated Feeder',
-    timestamp: new Date(),
-    eventType: 'price_update',
-    payload: { price },
-  });
+    // Log the price update event
+    eventLogs.push({
+      eventId: Date.now().toString(),
+      source: 'Simulated Feeder',
+      timestamp: new Date(),
+      eventType: 'price_update',
+      payload: { price },
+    });
 
-  // Iterate over user agents and trigger trades if conditions are met
-  for (const id in userAgents) {
-    const agent = userAgents[id];
-    if (checkTradingSignal(price, agent.riskProfile.threshold)) {
-      const trade = simulateTradeExecution(agent, price);
-      tradeResults.push({ userAgentId: id, trade });
+    // Iterate over user agents and trigger trades if conditions are met
+    for (const id in userAgents) {
+      const agent = userAgents[id];
+      if (checkTradingSignal(price, agent.riskProfile.threshold)) {
+        const trade = simulateTradeExecution(agent, price);
+        tradeResults.push({ userAgentId: id, trade });
 
-      // Log the trade execution event
-      eventLogs.push({
-        eventId: Date.now().toString(),
-        source: 'Trigger Engine',
-        timestamp: new Date(),
-        eventType: 'trade_executed',
-        payload: { userAgentId: id, trade },
-      });
+        // Update the user in database
+        await User.findByIdAndUpdate(id, {
+          $push: { trades: trade },
+          status: 'trade executed'
+        });
+
+        // Log the trade execution event
+        eventLogs.push({
+          eventId: Date.now().toString(),
+          source: 'Trigger Engine',
+          timestamp: new Date(),
+          eventType: 'trade_executed',
+          payload: { userAgentId: id, trade },
+        });
+      }
     }
-  }
 
-  res.json({ message: 'Trade simulation completed', price, tradeResults });
+    res.json({ message: 'Trade simulation completed', price, tradeResults });
+  } catch (error) {
+    res.status(500).json({ error: 'Error during trade simulation' });
+  }
 };
 
 // Controller to retrieve logged events
