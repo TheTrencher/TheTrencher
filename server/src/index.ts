@@ -1,6 +1,7 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import { connectDB } from './config/database';
 
 // Import route modules (they are placeholders for now)
 import userRoutes from './routes/userRoutes';
@@ -30,12 +31,14 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).send('Internal Server Error');
 });
 
-// For local development, start the app only if not running on Vercel
-if (!process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`TheTrencher backend is listening on port ${PORT}`);
-  });
-}
+// Connect to MongoDB before starting the server
+connectDB().then(() => {
+  if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+      console.log(`TheTrencher backend is listening on port ${PORT}`);
+    });
+  }
+});
 
 // Export the app so that Vercel can handle it as a serverless function
 export default app;
