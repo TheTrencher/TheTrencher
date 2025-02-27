@@ -42,3 +42,9 @@ connectDB().then(() => {
 
 // Export the app so that Vercel can handle it as a serverless function
 export default app;
+
+// Add this after your imports
+if (!process.env.JWT_SECRET) {
+  console.error('JWT_SECRET is not defined in environment variables');
+  process.exit(1);
+}

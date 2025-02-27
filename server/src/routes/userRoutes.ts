@@ -1,14 +1,24 @@
 import { Router } from 'express';
-import { createUserAgent, getUserAgentStatus, updateRiskProfile } from '../controllers/userController';
+import { 
+  createUserAgent, 
+  getUserAgentStatus, 
+  updateRiskProfile,
+  registerUser,
+  loginUser,
+  logoutUser
+} from '../controllers/userController';
+import { auth } from '../middleware/auth';
 
 const router: Router = Router();
 
-// Endpoint to create a new user agent
-router.post('/', createUserAgent);
+// Auth routes
+router.post('/register', registerUser);
+router.post('/login', loginUser);
+router.post('/logout', auth, logoutUser);
 
-// Endpoint to get the status of a user agent by ID
-router.get('/:id', getUserAgentStatus);
-
-router.put('/:id/risk', updateRiskProfile);
+// Protected routes
+router.post('/', auth, createUserAgent);
+router.get('/me', auth, getUserAgentStatus);
+router.put('/:id/risk', auth, updateRiskProfile);
 
 export default router;
