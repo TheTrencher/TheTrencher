@@ -4,12 +4,15 @@ import jwt from 'jsonwebtoken';
 
 const tradeSchema = new mongoose.Schema({
   tradeId: String,
+  symbol: String,
   executedPrice: Number,
   timestamp: Date,
   action: {
     type: String,
     enum: ['buy', 'sell']
-  }
+  },
+  quantity: Number,
+  total: Number
 });
 
 export interface IUserDocument extends Document {
@@ -21,9 +24,12 @@ export interface IUserDocument extends Document {
   status: string;
   trades: Array<{
     tradeId: string;
+    symbol: string;
     executedPrice: number;
     timestamp: Date;
     action: 'buy' | 'sell';
+    quantity: number;
+    total: number;
   }>;
   tokens: { token: string }[];
   generateAuthToken(): Promise<string>;
@@ -43,7 +49,7 @@ const userSchema = new mongoose.Schema({
   riskProfile: {
     threshold: {
       type: Number,
-      default: 50
+      default: 1
     }
   },
   status: {

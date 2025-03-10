@@ -1,18 +1,8 @@
 import { Request, Response } from 'express';
-import { getUserAgentsStore } from './userController';
+import { AuthRequest } from '../middleware/auth';
+import { tradingService } from '../services/tradingService';
+import { marketService } from '../services/marketService';
 import { User } from '../models/User';
-
-interface Trade {
-  tradeId: string;
-  executedPrice: number;
-  timestamp: Date;
-  action: 'buy' | 'sell';
-}
-
-interface TradeResult {
-  userAgentId: string;
-  trade: Trade;
-}
 
 interface EventLog {
   eventId: string;
@@ -24,75 +14,66 @@ interface EventLog {
 
 let eventLogs: EventLog[] = [];
 
-// Simulate price data from a feeder engine
-const simulatePriceData = (): number => {
-  // Generate a random price around a base of 2000 +/- 100
-  return 2000 + (Math.random() - 0.5) * 200;
-};
-
-// Check if the trading signal is triggered based on user risk threshold
-const checkTradingSignal = (price: number, riskThreshold: number): boolean => {
-  // Trigger if the absolute deviation from 2000 exceeds the threshold
-  return Math.abs(price - 2000) > riskThreshold;
-};
-
-// Simulate executing a trade for a user agent
-const simulateTradeExecution = (agent: any, price: number): Trade => {
-  const trade: Trade = {
-    tradeId: Date.now().toString(),
-    executedPrice: price,
-    timestamp: new Date(),
-    action: price > 2000 ? 'sell' : 'buy',
-  };
-
-  // Update user agent's trade history and status
-  agent.trades.push(trade);
-  agent.status = 'trade executed';
-  return trade;
-};
-
-// Update the controller function to be async
-export const triggerTradeSimulation = async (req: Request, res: Response): Promise<void> => {
+// Update the controller to use real market data and trading service
+export const triggerTradeSimulation = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userAgents = await getUserAgentsStore();
-    const price = simulatePriceData();
+    if (!req.user?._id) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
+
+    // Get all active users
+    const users = await User.find({});
     const tradeResults = [];
 
-    // Log the price update event
-    eventLogs.push({
-      eventId: Date.now().toString(),
-      source: 'Simulated Feeder',
-      timestamp: new Date(),
-      eventType: 'price_update',
-      payload: { price },
-    });
+    // Update markets first
+    const markets = await marketService.updateMarkets();
+    const currentPrice = markets[0]?.price || 2000; // Fallback price
 
-    // Iterate over user agents and trigger trades if conditions are met
-    for (const id in userAgents) {
-      const agent = userAgents[id];
-      if (checkTradingSignal(price, agent.riskProfile.threshold)) {
-        const trade = simulateTradeExecution(agent, price);
-        tradeResults.push({ userAgentId: id, trade });
-
-        // Update the user in database
-        await User.findByIdAndUpdate(id, {
-          $push: { trades: trade },
-          status: 'trade executed'
-        });
-
-        // Log the trade execution event
-        eventLogs.push({
-          eventId: Date.now().toString(),
-          source: 'Trigger Engine',
-          timestamp: new Date(),
-          eventType: 'trade_executed',
-          payload: { userAgentId: id, trade },
+    // Execute trades for each user
+    for (const user of users) {
+      const trades = await tradingService.checkAndExecuteTrades(user._id.toString());
+      
+      if (trades.length > 0) {
+        tradeResults.push({
+          userAgentId: user._id,
+          trade: {
+            tradeId: trades[0].tradeId,
+            executedPrice: trades[0].executedPrice,
+            timestamp: trades[0].timestamp,
+            action: trades[0].action
+          }
         });
       }
     }
 
-    res.json({ message: 'Trade simulation completed', price, tradeResults });
+    // Log events
+    eventLogs.push({
+      eventId: Date.now().toString(),
+      source: 'Market Service',
+      timestamp: new Date(),
+      eventType: 'price_update',
+      payload: { price: currentPrice },
+    });
+
+    tradeResults.forEach(result => {
+      eventLogs.push({
+        eventId: Date.now().toString(),
+        source: 'Trading Service',
+        timestamp: new Date(),
+        eventType: 'trade_executed',
+        payload: result,
+      });
+    });
+
+    res.json({
+      message: 'Trade simulation completed',
+      price: currentPrice,
+      tradeResults
+    });
+
   } catch (error) {
+    console.error('Trade simulation error:', error);
     res.status(500).json({ error: 'Error during trade simulation' });
   }
 };

@@ -19,6 +19,6 @@ router.post('/logout', auth, logoutUser);
 // Protected routes
 router.post('/', auth, createUserAgent);
 router.get('/me', auth, getUserAgentStatus);
-router.put('/:id/risk', auth, updateRiskProfile);
+router.put('/me/risk', auth, updateRiskProfile);
 
 export default router;

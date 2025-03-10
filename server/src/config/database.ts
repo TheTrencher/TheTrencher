@@ -9,35 +9,48 @@ export const connectDB = async () => {
       throw new Error('MONGODB_URI is not defined in environment variables');
     }
 
-    const options = {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      retryWrites: true,
-      w: 'majority',
-      ssl: true,
-      authSource: 'admin'
-    };
-
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    mongoose.connection.on('disconnected', () => {
+      console.log('MongoDB disconnected. Attempting to reconnect...');
+      startConnection();
+    });
 
     mongoose.connection.on('error', (err) => {
       console.error('MongoDB connection error:', err);
     });
 
-    mongoose.connection.on('disconnected', () => {
-      console.log('MongoDB disconnected');
+    mongoose.connection.on('connected', () => {
+      console.log(`MongoDB Connected: ${mongoose.connection.host}`);
     });
 
+    await startConnection();
+
   } catch (error) {
-    console.error('Error connecting to MongoDB:', error);
-    if (error instanceof Error) {
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        cause: (error as any).cause
-      });
-    }
+    console.error('Error in database configuration:', error);
     process.exit(1);
   }
-}; 
+};
+
+const startConnection = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI as string, {
+      serverSelectionTimeoutMS: 30000,
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 30000,
+      maxPoolSize: 50
+    });
+  } catch (error) {
+    console.error('Connection attempt failed:', error);
+    setTimeout(startConnection, 5000);
+  }
+};
+
+process.on('SIGINT', async () => {
+  try {
+    await mongoose.connection.close();
+    console.log('MongoDB connection closed through app termination');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during MongoDB disconnection:', err);
+    process.exit(1);
+  }
+}); 

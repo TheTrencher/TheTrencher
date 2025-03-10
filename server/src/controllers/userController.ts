@@ -59,13 +59,12 @@ export const getUserAgentStatus = async (req: AuthRequest, res: Response): Promi
 };
 
 // Update the risk profile for a user agent
-export const updateRiskProfile = async (req: Request, res: Response): Promise<void> => {
+export const updateRiskProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
     const { riskProfile } = req.body;
     
     const agent = await User.findByIdAndUpdate(
-      id,
+      req.user._id,
       { riskProfile },
       { new: true }
     );
@@ -75,8 +74,14 @@ export const updateRiskProfile = async (req: Request, res: Response): Promise<vo
       return;
     }
     
+    console.log('Updated risk profile for user:', {
+      userId: req.user._id,
+      newThreshold: riskProfile.threshold
+    });
+    
     res.json({ message: 'Risk profile updated', userAgent: agent });
   } catch (error) {
+    console.error('Error updating risk profile:', error);
     res.status(500).json({ error: 'Error updating risk profile' });
   }
 };
@@ -97,7 +102,9 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
     const user = new User({
       username,
       password,
-      riskProfile: { threshold: 50 },
+      riskProfile: { 
+        threshold: 1  // Lower threshold (1%) to trigger more trades
+      },
       status: 'idle',
       trades: []
     });
@@ -107,6 +114,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
     
     res.status(201).json({ user, token });
   } catch (error) {
+    console.error('Registration error:', error);
     res.status(400).json({ error: 'Error registering user' });
   }
 };
